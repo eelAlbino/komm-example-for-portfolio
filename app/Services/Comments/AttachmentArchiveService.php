@@ -99,7 +99,7 @@ class AttachmentArchiveService
      *
      * @param Comment $comment
      * @param Collection $attachment
-     * @param string $filterHash
+     * @param string|null $filterHash
      * @param string $contentControlSum
      * @return CommentAttachmentArchive|NULL
      */
@@ -107,10 +107,10 @@ class AttachmentArchiveService
         Comment $comment,
         Collection $attachment,
         ?string $filterHash = null,
-        ?string $contentControlSum = null
+        string $contentControlSum
     ): ?CommentAttachmentArchive
     {
-        return DB::transaction(function () use ($comment, $attachment) {
+        return DB::transaction(function () use ($comment, $attachment, $filterHash, $contentControlSum) {
             // Create a new attachment archive record
             $archive = CommentAttachmentArchive::create([
                 'comment_id' => $comment->id,
