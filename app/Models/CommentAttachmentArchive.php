@@ -10,6 +10,10 @@ class CommentAttachmentArchive extends Model
 {
     use HasFactory, Attachable;
 
+     const STATUS_INIT = 'init';
+     const STATUS_FILLING = 'filling';
+     const STATUS_FILLED = 'filled';
+
     /**
      * @var string
      */
