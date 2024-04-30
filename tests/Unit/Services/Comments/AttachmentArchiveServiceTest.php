@@ -93,38 +93,34 @@ class AttachmentArchiveServiceTest extends TestCase
         // Create a comment
         $comment = Comment::factory()->create();
 
-        $archiveId = 1;
+        // Create attachment for comment
+        $comment->uploadFile(
+            UploadedFile::fake()->create(
+                'document.pdf',
+                1024 // 1kb
+            )
+        );
+
+        // Create service with comment
         $service = new AttachmentArchiveService($comment);
 
-        $reflectionService = new ReflectionObject($service);
-
-        // Reflection createAttachmentFile method
-        $createAttachmentFile = $reflectionService->getMethod('createAttachmentFile');
-        $createAttachmentFile->setAccessible(true);
-
-        // Create attachment collection
-        $attachments = Collection::make([
-            $createAttachmentFile->invoke($service, $this->createTestFile('test1.txt', 'Content 1 (testCreateArchive)')),
-            $createAttachmentFile->invoke($service, $this->createTestFile('test2.txt', 'Content 2 (testCreateArchive)')),
-        ]);
-
-        // Reflection createArchive method
-        $createArchive = $reflectionService->getMethod('createArchive');
-        $createArchive->setAccessible(true);
-
-        // Call method
-        $zipPath = $createArchive->invoke($service, $comment->id, $archiveId, new Collection($attachments));
+        // Call method for creating CommentAttachmentArchive element
+        $commentAttachmentArchive = $service->get();
 
         // Assert
-        $this->assertNotNull($zipPath);
+        $this->assertNotNull($commentAttachmentArchive);
+        $this->assertNotNull($commentAttachmentArchive->archive_attachment);
+        $archiveAttachment = $commentAttachmentArchive->archive_attachment;
+
+        // Zip archive path
+        $zipPath = Storage::disk($archiveAttachment->disk)->path($archiveAttachment->physicalPath());
         $this->assertFileExists($zipPath);
 
         // Clean up. Delete attachments and zip
-        foreach ($attachments as $file) {
-            $this->deleteTestFile($file->original_name);
-            $file->delete();
-        }
         unlink($zipPath);
+        foreach ($comment->attachmentRecursive() as $item) {
+            unlink(Storage::disk($item->disk)->path($item->physicalPath()));
+        }
     }
 
     /**
@@ -145,7 +141,7 @@ class AttachmentArchiveServiceTest extends TestCase
 
         // Create attachment collection
         $attachment = Collection::make([
-            $createAttachmentFile->invoke($service, $this->createTestFile('test1.txt', 'Content (testCreate)')),
+            $createAttachmentFile->invoke($service, $this->createTestFile('test1.txt', 'Content (testCreate)'), 'test1.txt'),
         ]);
 
         // Reflection createArchive method
@@ -153,7 +149,7 @@ class AttachmentArchiveServiceTest extends TestCase
         $create->setAccessible(true);
 
         // Call method
-        $archive = $create->invoke($service, $comment, $attachment, null, 'test_content_control_sum');
+        $archive = $create->invoke($service, $comment, null, 'test_content_control_sum');
 
         // Assert
         $this->assertInstanceOf(CommentAttachmentArchive::class, $archive);

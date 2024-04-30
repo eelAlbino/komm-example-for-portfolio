@@ -9,8 +9,10 @@ use APP\Models\ProjectUser;
 use App\Services\Comments\AttachmentArchiveService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Response;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 use Mockery;
 use Orchid\Attachment\File;
@@ -46,35 +48,43 @@ class GetFilesZipTest extends TestCase
             'project_id' => $project->id
         ]);
 
-        // Create CommentAttachmentArchive
-        $archive = CommentAttachmentArchive::factory()->create([
-            'comment_id' => $comment->id
-        ]);
+        // Create comment attachment
+        $comment->uploadFile(
+            UploadedFile::fake()->create(
+                'document.pdf',
+                1024 // 1kb
+            )
+        );
 
-        // Create a mock File
-        $mockFileData = [
-            'original_name' => "comment_{$comment->id}_{$archive->id}.zip",
-            'url' => 'https://example.com/archive.zip',
-            'extension' => 'zip',
-            'size' => 1024
-        ];
-        $mockFile = Mockery::mock(File::class);
-        $mockFile->shouldReceive('only')->andReturn($mockFileData);
+//         // Create CommentAttachmentArchive
+//         $archive = CommentAttachmentArchive::factory()->create([
+//             'comment_id' => $comment->id
+//         ]);
 
-        // Add mock on attachment for archive element
-        $archive = Mockery::mock($archive)->makePartial();
-        $archive->attachment = collect([
-            $mockFile
-        ]);
+//         // Create a mock File
+//         $mockFileData = [
+//             'original_name' => "comment_{$comment->id}_{$archive->id}.zip",
+//             'url' => 'https://example.com/archive.zip',
+//             'extension' => 'zip',
+//             'size' => 1024
+//         ];
+//         $mockFile = Mockery::mock(File::class);
+//         $mockFile->shouldReceive('only')->andReturn($mockFileData);
 
-        // Replace the service implementation with a mock.
-        $mockService = Mockery::mock(AttachmentArchiveService::class);
-        $mockService->shouldReceive('get')->andReturn($archive);
+//         // Add mock on attachment for archive element
+//         $archive = Mockery::mock($archive)->makePartial();
+//         $archive->attachment = collect([
+//             $mockFile
+//         ]);
 
-        // Bind the mock instance into the service container.
-        $this->app->bind(AttachmentArchiveService::class, function ($app) use ($mockService) {
-            return $mockService;
-        });
+//         // Replace the service implementation with a mock.
+//         $mockService = Mockery::mock(AttachmentArchiveService::class);
+//         $mockService->shouldReceive('get')->andReturn($archive);
+
+//         // Bind the mock instance into the service container.
+//         $this->app->bind(AttachmentArchiveService::class, function ($app) use ($mockService) {
+//             return $mockService;
+//         });
 
         // Auth user
         Auth::guard('api')->login($user);
@@ -82,11 +92,22 @@ class GetFilesZipTest extends TestCase
         // Send a request to the getFilesZip method with authentication.
         $response = $this->getJson('/api/v1/comment/' . $comment->id . '/file/zip');
 
+        $archiveElement = CommentAttachmentArchive::where([
+            'comment_id' => $comment->id
+        ])->first();
+
         // Ensure that the response contains a successful status and the expected data.
         $response->assertStatus(Response::HTTP_OK)->assertJson([
             'status' => 'success',
-            'archive' => $mockFileData
+            'filling_status' => CommentAttachmentArchive::STATUS_FILLED,
+            'archive' => $archiveElement->archive_attachment->only(['original_name', 'url', 'extension', 'size'])
         ]);
+
+        // Clean up. Delete attachments and zip
+        $archiveElement->delete();
+        foreach ($comment->attachmentRecursive() as $item) {
+            unlink(Storage::disk($item->disk)->path($item->physicalPath()));
+        }
     }
 
     /**
