@@ -3,14 +3,13 @@ namespace App\Services\Comments;
 
 use App\Models\Comment;
 use App\Models\CommentAttachmentArchive;
+use App\Jobs\FillCommentAttachmentArchiveJob;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpKernel\Exception\HttpException;
 use Orchid\Attachment\File;
 use Orchid\Attachment\Models\Attachment;
-use ZipArchive;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * The service is designed to create zip archives with all comment attachment files.
@@ -57,15 +56,19 @@ class AttachmentArchiveService
             $archive = null;
         }
 
-        // Create a new attachment archive if not exists
+        // Create a new attachment archive if not exists and start fill attachment to archive
         if (!$archive) {
-            $archive = $this->create($this->comment, $attachment, $filterHash, $contentControlSum);
+            $archive = $this->create($this->comment, $filterHash, $contentControlSum);
+            // Execute job
+            (new FillCommentAttachmentArchiveJob($archive->id, 20))
+                ->setCheckEstimatedAddTime(true)
+                ->setAttachments($attachment)
+                ->handle();
         }
 
         if ($archive) {
-            $archive->showed_at = now();
-            $archive->save();
             $archive->load('attachment');
+            $archive->refresh();
             return $archive;
         }
 
@@ -98,88 +101,68 @@ class AttachmentArchiveService
      * Create a new attachment archive
      *
      * @param Comment $comment
-     * @param Collection $attachment
      * @param string|null $filterHash
      * @param string $contentControlSum
      * @return CommentAttachmentArchive|NULL
      */
     private function create(
         Comment $comment,
-        Collection $attachment,
         ?string $filterHash = null,
         string $contentControlSum
     ): ?CommentAttachmentArchive
     {
-        return DB::transaction(function () use ($comment, $attachment, $filterHash, $contentControlSum) {
-            // Create a new attachment archive record
-            $archive = CommentAttachmentArchive::create([
-                'comment_id' => $comment->id,
-                'filter_hash' => $filterHash,
-                'content_control_sum' => $contentControlSum
-            ]);
-
-            // Create archive file
-            $archivePath = $this->createArchive($comment->id, $archive->id, $attachment);
-            $attachmentFile = $this->createAttachmentFile($archivePath);
-
-            // Attach the file to the archive
-            $archive->attachment()->syncWithoutDetaching([
-                $attachmentFile->id
-            ]);
-
-            return $archive;
-        });
+        // Create a new attachment archive record
+        $archive = CommentAttachmentArchive::create([
+            'comment_id' => $comment->id,
+            'filter_hash' => $filterHash,
+            'content_control_sum' => $contentControlSum
+        ]);
+        return $archive;
     }
 
     /**
-     * Create zip archive containing the attachments
-     *
-     * @param int $commentId
-     * @param int $archiveId
-     * @param Collection $attachment
-     * @throws HttpException
-     * @return string|NULL
+     * Add empty zip file as attachment to element.
+     * 
+     * @param CommentAttachmentArchive $archive
+     * @param string $zipPath
      */
-    private function createArchive(int $commentId, int $archiveId, Collection $attachment): ?string
-    {
-        $zipFilename = 'comment_' . $commentId . '_' . $archiveId . '.zip';
-        $zipPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $zipFilename;
+    public function addZipAttachmentFile(CommentAttachmentArchive $archive, string $zipPath) {
+        DB::transaction(function () use ($archive, $zipPath) {
+            $zipFilename = 'comment_' . $archive->comment_id . '_' . $archive->id . '.zip';
+            //Create attachment file for archive element
+            $attachmentFile = $this->createAttachmentFile($zipPath, $zipFilename);
 
-        $zip = new ZipArchive();
-        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
-            foreach ($attachment as $item) {
-                // Add each attachment file to the zip archive
-                $sourcePath = Storage::disk($item->disk)->path($item->physicalPath());
-                $filename = $item->getTitleAttribute();
-                $zip->addFile($sourcePath, $filename);
-            }
-            $zip->close();
-            return $zipPath;
-        } else {
-            // Throw exception if zip archive creation failed
-            throw new HttpException(422, 'Cannot create zip file by path ' . $zipPath);
-        }
+            // Attach the file to the archive element
+            $archive->attachment()->syncWithoutDetaching([
+                $attachmentFile->id
+            ]);
+            $archive->saveQuietly();
+        });
+        $archive->refresh();
     }
 
     /**
      * Create attachment file object by path
      *
-     * @param string $archivePath
+     * @param string $path
+     * @param string $fileName
      * @return Attachment
      */
-    private function createAttachmentFile(string $archivePath): Attachment
+    private function createAttachmentFile($path, string $fileName): Attachment
     {
         // Create uploaded file instance from archive path
         $uploadedFile = new UploadedFile(
-            $archivePath,
-            basename($archivePath),
-            mime_content_type($archivePath),
-            filesize($archivePath),
+            $path,
+            $fileName,
+            'application/zip',
+            filesize($path),
             false,
             true
         );
 
-        // Load file into attachment
-        return (new File($uploadedFile))->load();
+        // Create File with loading archive
+        $attachment = (new File($uploadedFile))->load();
+
+        return $attachment;
     }
 }

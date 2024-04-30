@@ -4,7 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\Collection;
 use Orchid\Attachment\Attachable;
+use Orchid\Attachment\Models\Attachment;
 
 class CommentAttachmentArchive extends Model
 {
@@ -26,11 +29,21 @@ class CommentAttachmentArchive extends Model
         'comment_id',
         'filter_hash',
         'content_control_sum',
-        'showed_at'
+        'showed_at',
+        'status'
     ];
 
     protected $dates = [
         'showed_at'
+    ];
+
+    /**
+     * The attributes that should be appends.
+     *
+     * @var array
+     */
+    protected $appends = [
+        'archive_attachment',
     ];
 
     /**
@@ -41,5 +54,26 @@ class CommentAttachmentArchive extends Model
     public function comment()
     {
         return $this->belongsTo(Comment::class, 'comment_id');
+    }
+
+    /**
+     * Get the comment's attachment.
+     *
+     * @param array $filter
+     * @return Illuminate\Database\Eloquent\Collection
+     */
+    public function commentAttachments(?array $filter = null): Collection
+    {
+        return $this->comment->attachmentRecursive($filter);
+    }
+
+    /**
+     * Get archive attachment file
+     *
+     * @return \Orchid\Attachment\Models\Attachment|null
+     */
+    public function getArchiveAttachmentAttribute(): ?Attachment
+    {
+        return $this->attachment()->first();
     }
 }
