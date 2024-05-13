@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 use Mockery;
 use Orchid\Attachment\File;
+use Orchid\Attachment\Models\Attachment;
 
 class GetFilesZipTest extends TestCase
 {
@@ -55,36 +56,6 @@ class GetFilesZipTest extends TestCase
                 1024 // 1kb
             )
         );
-
-//         // Create CommentAttachmentArchive
-//         $archive = CommentAttachmentArchive::factory()->create([
-//             'comment_id' => $comment->id
-//         ]);
-
-//         // Create a mock File
-//         $mockFileData = [
-//             'original_name' => "comment_{$comment->id}_{$archive->id}.zip",
-//             'url' => 'https://example.com/archive.zip',
-//             'extension' => 'zip',
-//             'size' => 1024
-//         ];
-//         $mockFile = Mockery::mock(File::class);
-//         $mockFile->shouldReceive('only')->andReturn($mockFileData);
-
-//         // Add mock on attachment for archive element
-//         $archive = Mockery::mock($archive)->makePartial();
-//         $archive->attachment = collect([
-//             $mockFile
-//         ]);
-
-//         // Replace the service implementation with a mock.
-//         $mockService = Mockery::mock(AttachmentArchiveService::class);
-//         $mockService->shouldReceive('get')->andReturn($archive);
-
-//         // Bind the mock instance into the service container.
-//         $this->app->bind(AttachmentArchiveService::class, function ($app) use ($mockService) {
-//             return $mockService;
-//         });
 
         // Auth user
         Auth::guard('api')->login($user);
