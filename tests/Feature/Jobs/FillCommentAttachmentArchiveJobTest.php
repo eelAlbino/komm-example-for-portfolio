@@ -60,6 +60,9 @@ class FillCommentAttachmentArchiveJobTest extends TestCase
         // Set queue.default config equal "redis". We use redis for queues
         Config::set('queue.default', 'redis');
 
+        // Flush the queue
+        $this->artisan('queue:flush');
+
         // Execute job
         (new FillCommentAttachmentArchiveJob(
                 $archive->id,
