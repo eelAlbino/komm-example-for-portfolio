@@ -75,7 +75,9 @@ class GetFilesZipTest extends TestCase
         ]);
 
         // Clean up. Delete attachments and zip
-        $archiveElement->delete();
+        $archiveElement->attachment()->each(function($attachment) {
+            $attachment->delete();
+        });
         foreach ($comment->attachmentRecursive() as $item) {
             unlink(Storage::disk($item->disk)->path($item->physicalPath()));
         }
