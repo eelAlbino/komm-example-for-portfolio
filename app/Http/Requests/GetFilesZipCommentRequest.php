@@ -7,6 +7,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use App\Contracts\Docs\Swagger\Requests\StoreCommentRequest as SwaggerDoc;
+use App\Models\Comment;
 
 class GetFilesZipCommentRequest extends FormRequest implements SwaggerDoc
 {
@@ -15,9 +16,12 @@ class GetFilesZipCommentRequest extends FormRequest implements SwaggerDoc
      *
      * @return bool
      */
-    public function authorize()
+    public function authorize(Request $request)
     {
-        return true;
+        if ($request->id && $comment = Comment::find($request->id)) {
+            return $this->user()->can('view', $comment);
+        }
+        return false;
     }
     
     /**
