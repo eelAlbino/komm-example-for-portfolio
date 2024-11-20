@@ -46,7 +46,8 @@ class GetFilesZipTest extends TestCase
         // Create Comment.
         $comment = Comment::factory()->create([
             'created_by' => $user->id,
-            'project_id' => $project->id
+            'project_id' => $project->id,
+            'is_private' => false
         ]);
 
         // Create comment attachment
