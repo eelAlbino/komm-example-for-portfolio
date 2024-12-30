@@ -57,8 +57,8 @@ class FillCommentAttachmentArchiveJobTest extends TestCase
         // Set timeout 2 sec for fill only one file
         $timeoutSecs = 2;
 
-        // Set queue.default config equal "redis". We use redis for queues
-        Config::set('queue.default', 'redis');
+        // Set queue.default config equal "database" for testing
+        Config::set('queue.default', 'database');
 
         // Flush the queue
         $this->artisan('queue:flush');
