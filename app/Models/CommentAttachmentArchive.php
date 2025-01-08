@@ -7,8 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Collection;
 use Orchid\Attachment\Models\Attachment;
 use App\Traits\Attachable;
+use App\Contracts\Docs\Swagger\Models\CommentAttachmentArchive as SwaggerDoc;
 
-class CommentAttachmentArchive extends Model
+class CommentAttachmentArchive extends Model implements SwaggerDoc
 {
     use HasFactory, Attachable;
 
