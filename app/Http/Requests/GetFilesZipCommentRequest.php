@@ -6,8 +6,9 @@ use Illuminate\Foundation\Http\FormRequest;
 
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use App\Contracts\Docs\Swagger\Requests\StoreCommentRequest as SwaggerDoc;
 
-class GetFilesZipCommentRequest extends FormRequest
+class GetFilesZipCommentRequest extends FormRequest implements SwaggerDoc
 {
     /**
      * Determine if the user is authorized to make this request.
