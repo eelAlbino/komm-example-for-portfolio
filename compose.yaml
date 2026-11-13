@@ -1,0 +1,36 @@
+services:
+  mysql:
+    image: mysql:8.0.31
+    environment:
+      MYSQL_ROOT_PASSWORD: portfolio-root-local
+      MYSQL_DATABASE: komm_portfolio
+      MYSQL_USER: portfolio
+      MYSQL_PASSWORD: portfolio-local
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql-init.sql:/docker-entrypoint-initdb.d/01-test-database.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --silent"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  app:
+    build: .
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - .:/workspace
+    ports:
+      - "127.0.0.1:8000:8000"
+    command: php artisan serve --host=0.0.0.0 --port=8000
+  worker:
+    build: .
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - .:/workspace
+    command: php artisan queue:work database --tries=1
+volumes:
+  mysql-data:

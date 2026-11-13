@@ -1,0 +1,7 @@
+.git
+.env*
+vendor
+public/storage
+storage/app/public/*
+storage/logs
+.local-verification
